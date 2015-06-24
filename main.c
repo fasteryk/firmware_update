@@ -84,13 +84,17 @@ int get_response(char *resp, int len)
 int check_mcu_status()
 {
     u_char cmd, resp;
+    int retry = 5;
 
     cmd = 0x7f;
-    send_cmd(&cmd, 1);
-    if (get_response(&resp, 1) < 0 || resp != 0x79)
-        return -1;
 
-    return 0;
+    while (retry--) {
+        send_cmd(&cmd, 1);
+        if (get_response(&resp, 1) == 1 || resp == 0x79)
+          return 0;
+    }
+
+    return -1;
 }
 
 int get_bootloader_version(int *ver)
@@ -268,7 +272,7 @@ int burn_flash(u_char *buf, int size)
 
 int main(int argc, char **argv)
 {
-    int ver, id, mcu_fv, fv, f_size;
+    int ver, id, mcu_fv, fv, f_size, ret = -1;
     FILE *fp;
     u_char *buf;
 
@@ -305,8 +309,10 @@ int main(int argc, char **argv)
     enter_boot_mode();
 
     /*Check whether the MCU has entered boot mode*/
-    if (check_mcu_status() != 0)
+    if (check_mcu_status() != 0) {
+        printf("MCU can't enter boot mode\n");
         goto _exit;
+    }
 
     /*get MCU bootloader version*/
     if (get_bootloader_version(&ver) != 0)
@@ -357,7 +363,9 @@ int main(int argc, char **argv)
             goto _exit;
         }
         printf("done\n");
+        ret = 0;
     } else {
+        ret = 0;
         printf("It‘s seem that update file is an older version, no need to update\n");
     }
 
@@ -365,5 +373,5 @@ _exit:
     reset_mcu();
     cleanup();
 
-    return 0;
+    return ret;
 }
